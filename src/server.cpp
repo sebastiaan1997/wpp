@@ -19,7 +19,7 @@
 #include <thread>
 
 
-WPP::Server::Server(): _socket(-1) {}
+WPP::Server::Server(): _port(80),  _socket(-1), _running(false), _routes({}),  {}
 
 WPP::Server::~Server() {
     if(this->_socket >= 0) {
@@ -28,6 +28,9 @@ WPP::Server::~Server() {
     }
 
 }
+
+
+
 
 void WPP::Server::split(std::string str, std::string separator, int max, std::vector<std::string>* results){
     int i = 0;
@@ -217,6 +220,11 @@ bool WPP::Server::match_route(WPP::Request& req, WPP::Response& res) {
 
 void* WPP::Server::main_loop(unsigned int port) {
     // int* port = reinterpret_cast<int*>(arg);
+    if(_running) {
+        throw WPP::Exception("Server already running");
+    }
+
+    this->_running = true;
 
     int newsc;
 
@@ -241,7 +249,7 @@ void* WPP::Server::main_loop(unsigned int port) {
     socklen_t clilen;
     clilen = sizeof(cli_addr);
 
-    while(true) {
+    while(this->_running) {
         newsc = accept(this->_socket, (struct sockaddr *) &cli_addr, &clilen);
         if (newsc < 0) {
             throw WPP::Exception("ERROR on accept");
@@ -295,6 +303,7 @@ void* WPP::Server::main_loop(unsigned int port) {
 
 
 bool WPP::Server::start_async() {
+
     return this->start_async(80);
 }
 
@@ -305,6 +314,7 @@ bool WPP::Server::start_async(unsigned int port, std::string host) {
    auto server_thread = std::thread([this, port](){
         this->main_loop(port);
     });
+   return true;
 }
 bool WPP::Server::start(unsigned int port, std::string host) {
     this->main_loop(port);
@@ -320,10 +330,10 @@ bool WPP::Server::start() {
 }
 
 bool WPP::Server::is_running() const noexcept {
-    return this->_socket >= 0;
+    return this->_running;
 }
 std::optional<unsigned int> WPP::Server::port() const noexcept {
-    if(this->_socket < 0) {
+    if(!this->_running) {
         return {};
     }
     return this->_port;

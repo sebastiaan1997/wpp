@@ -17,4 +17,7 @@
 demo
 Web++*
 
-cmake-build-debug
+cmake-build-debug/**.*
+cmake-build-release/**.*
+cmake-**/**
+build

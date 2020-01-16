@@ -2,7 +2,7 @@
 #define WPP_SERVER_HPP
 #include <string>
 #include <vector>
-
+#include <atomic>
 
 #include "route.hpp"
 #include "definitions.hpp"
@@ -11,9 +11,17 @@ namespace WPP {
      * @brief Server class
      */
     class Server {
+    private:
+        unsigned int _port;
+        int _socket;
+        std::atomic_bool _running;
+        std::unordered_map<std::string, Route> _routes;
+
     public:
         Server();
         ~Server();
+
+
 
 
         void get(std::string, callbackType);
@@ -40,22 +48,18 @@ namespace WPP {
 
         bool start_async(unsigned int, std::string);
 
-
-
-
         bool is_running() const noexcept;
 
         std::optional<unsigned int> port() const noexcept;
     private:
-        unsigned int _port;
-        int _socket;
 
-        std::unordered_map<std::string, Route> _routes;
         void *main_loop(unsigned int);
         void parse_headers(char*, Request &, Response &);
         bool match_route(Request &, Response &);
         std::string trim(std::string);
         void split(std::string, std::string, int, std::vector<std::string> *);
+
+
 
 
     };
