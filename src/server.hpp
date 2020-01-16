@@ -32,9 +32,16 @@ namespace WPP {
 
         bool start(unsigned int);
 
-
-
         bool start();
+
+        bool start_async();
+
+        bool start_async(unsigned int);
+
+        bool start_async(unsigned int, std::string);
+
+
+
 
         bool is_running() const noexcept;
 

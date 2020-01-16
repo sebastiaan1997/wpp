@@ -1,0 +1,1 @@
+/usr/bin/c++  -flto -o3 -O3 -DNDEBUG  -flto -rdynamic CMakeFiles/wpp_demo.dir/demo.cpp.o  -o wpp_demo libwpp.a -lpthread 

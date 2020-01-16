@@ -16,6 +16,9 @@
 #include "exception.hpp"
 
 
+#include <thread>
+
+
 WPP::Server::Server(): _socket(-1) {}
 
 WPP::Server::~Server() {
@@ -218,7 +221,6 @@ void* WPP::Server::main_loop(unsigned int port) {
     int newsc;
 
     this->_socket = socket(AF_INET, SOCK_STREAM, 0);
-
     if (this->_socket < 0) {
         throw WPP::Exception("ERROR opening socket");
     }
@@ -241,7 +243,6 @@ void* WPP::Server::main_loop(unsigned int port) {
 
     while(true) {
         newsc = accept(this->_socket, (struct sockaddr *) &cli_addr, &clilen);
-
         if (newsc < 0) {
             throw WPP::Exception("ERROR on accept");
         }
@@ -291,6 +292,20 @@ void* WPP::Server::main_loop(unsigned int port) {
     this->_port = 0;
 }
 
+
+
+bool WPP::Server::start_async() {
+    return this->start_async(80);
+}
+
+bool WPP::Server::start_async(unsigned int port) {
+    return this->start_async(port, "0.0.0.0");
+}
+bool WPP::Server::start_async(unsigned int port, std::string host) {
+   auto server_thread = std::thread([this, port](){
+        this->main_loop(port);
+    });
+}
 bool WPP::Server::start(unsigned int port, std::string host) {
     this->main_loop(port);
     return true;

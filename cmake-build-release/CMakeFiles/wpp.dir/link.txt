@@ -1,0 +1,2 @@
+/usr/bin/ar qc libwpp.a  CMakeFiles/wpp.dir/src/web++.cpp.o CMakeFiles/wpp.dir/src/server.cpp.o CMakeFiles/wpp.dir/src/list_dir.cpp.o CMakeFiles/wpp.dir/src/method.cpp.o CMakeFiles/wpp.dir/src/response.cpp.o
+/usr/bin/ranlib libwpp.a
