@@ -15,6 +15,17 @@
 
 #include "exception.hpp"
 
+
+WPP::Server::Server(): _socket(-1) {}
+
+WPP::Server::~Server() {
+    if(this->_socket >= 0) {
+        close(this->_socket);
+        this->_socket = -1;
+    }
+
+}
+
 void WPP::Server::split(std::string str, std::string separator, int max, std::vector<std::string>* results){
     int i = 0;
     size_t found = str.find_first_of(separator);
@@ -40,9 +51,6 @@ std::string WPP::Server::trim(std::string s) {
 
     return s;
 }
-
-
-
 void WPP::Server::parse_headers(char* headers, Request& req, Response& res) {
     // Parse request headers
     int i = 0;
@@ -125,7 +133,7 @@ void WPP::Server::get(std::string path, callbackType callback) {
             callback
     };
 
-    this->_routes.push_back(r);
+    this->_routes.insert_or_assign(path, r);
 }
 
 void WPP::Server::post(std::string path, callbackType callback) {
@@ -135,7 +143,7 @@ void WPP::Server::post(std::string path, callbackType callback) {
             callback
     };
 
-    this->_routes.push_back(r);
+    this->_routes.insert_or_assign(path, r);
 }
 
 void WPP::Server::all(std::string path, callbackType callback) {
@@ -145,7 +153,7 @@ void WPP::Server::all(std::string path, callbackType callback) {
             callback
     };
 
-    this->_routes.push_back(r);
+    this->_routes.insert_or_assign(path, r);
 }
 
 void WPP::Server::get(std::string path, std::string loc) {
@@ -156,7 +164,7 @@ void WPP::Server::get(std::string path, std::string loc) {
             loc
     };
 
-    this->_routes.push_back(r);
+    this->_routes.insert_or_assign(path, r);
 }
 
 void WPP::Server::post(std::string path, std::string loc) {
@@ -167,7 +175,7 @@ void WPP::Server::post(std::string path, std::string loc) {
             loc
     };
 
-    this->_routes.push_back(r);
+    this->_routes.insert_or_assign(path, r);
 }
 
 void WPP::Server::all(std::string path, std::string loc) {
@@ -178,49 +186,61 @@ void WPP::Server::all(std::string path, std::string loc) {
             loc
     };
 
-    this->_routes.push_back(r);
+    this->_routes.insert_or_assign(path, r);
 }
 
-bool WPP::Server::match_route(Request& req, Response& res) {
-    for (std::vector<Route>::size_type i = 0; i < this->_routes.size(); i++) {
-        std::regex pattern (this->_routes[i].path);
-        if( regex_match(req.path, pattern) || this->_routes[i].path == req.path && (this->_routes[i].method == req.method || this->_routes[i].method == Method::all)) {
-            req.params = this->_routes[i].params;
-            this->_routes[i].callback(req, res);
+bool WPP::Server::match_route(WPP::Request& req, WPP::Response& res) {
+
+
+    auto route_iterator = this->_routes.find(req.path);
+    if(route_iterator != this->_routes.end()) {
+        req.params = route_iterator->second.params;
+        route_iterator->second.callback(req, res);
+        return true;
+    }
+
+
+
+    for(const auto& route: this->_routes) {
+        std::regex pattern (route.first);
+        if( regex_match(req.path, pattern) || route.second.path == req.path && (route.second.method == req.method || route.second.method == Method::all)) {
+            req.params = route.second.params;
+            route.second.callback(req, res);
             return true;
         }
     }
-
     return false;
 }
 
-void* WPP::Server::main_loop(void* arg) {
-    int* port = reinterpret_cast<int*>(arg);
+void* WPP::Server::main_loop(unsigned int port) {
+    // int* port = reinterpret_cast<int*>(arg);
 
     int newsc;
 
-    int sc = socket(AF_INET, SOCK_STREAM, 0);
+    this->_socket = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (sc < 0) {
+    if (this->_socket < 0) {
         throw WPP::Exception("ERROR opening socket");
     }
+
+    this->_port = port;
 
     struct sockaddr_in serv_addr, cli_addr;
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(*port);
+    serv_addr.sin_port = htons(port);
 
-    if (::bind(sc, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) != 0) {
+    if (::bind(this->_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) != 0) {
         throw WPP::Exception("ERROR on binding");
     }
 
-    listen(sc, 5);
+    listen(this->_socket, 5);
 
     socklen_t clilen;
     clilen = sizeof(cli_addr);
 
     while(true) {
-        newsc = accept(sc, (struct sockaddr *) &cli_addr, &clilen);
+        newsc = accept(this->_socket, (struct sockaddr *) &cli_addr, &clilen);
 
         if (newsc < 0) {
             throw WPP::Exception("ERROR on accept");
@@ -241,36 +261,38 @@ void* WPP::Server::main_loop(void* arg) {
         this->parse_headers(headers, req, res);
 
         if(!this->match_route(req, res)) {
-            res.code = 404;
+            res.code = StatusCode::not_found;
             res.phrase = "Not Found";
             res.type = "text/plain";
             res.send("Not found");
         }
+        std::string header_buffer = "";
+        header_buffer.reserve(bufsize);
 
-        char header_buffer[bufsize];
+
         std::string body = res.body.str();
         size_t body_len = body.size();
 
         // build http response
-        sprintf(header_buffer, "HTTP/1.0 %d %s\r\n", res.code, res.phrase.c_str());
+        header_buffer += "HTTP/1.0 " + std::to_string(static_cast<unsigned int>(res.code)) + ' ' + res.phrase + "\r\n";
 
         // append headers
-        sprintf(&header_buffer[strlen(header_buffer)], "Server: %s %s\r\n", server_name, server_version);
-        sprintf(&header_buffer[strlen(header_buffer)], "Date: %s\r\n", res.date.c_str());
-        sprintf(&header_buffer[strlen(header_buffer)], "Content-Type: %s\r\n", res.type.c_str());
-        sprintf(&header_buffer[strlen(header_buffer)], "Content-Length: %zd\r\n", body_len);
-
-        // append extra crlf to indicate start of body
-        strcat(header_buffer, "\r\n");
-
+        header_buffer += "Server: " + std::string(server_name) + ' ' + std::string(server_version) + "\r\n"
+                + "Date: " + res.date + "\r\n"
+                + "Content-Type:" + res.type + "\r\n"
+                + "Content-Length: " + std::to_string(body_len) + "\r\n"
+                + "\r\n";
         ssize_t t;
-        t = write(newsc, header_buffer, strlen(header_buffer));
+        t = write(newsc, header_buffer.c_str(), strlen(header_buffer.c_str()));
         t = write(newsc, body.c_str(), body_len);
     }
+    close(this->_socket);
+    this->_socket = -1;
+    this->_port = 0;
 }
 
 bool WPP::Server::start(unsigned int port, std::string host) {
-    this->main_loop(&port);
+    this->main_loop(port);
     return true;
 }
 
@@ -280,4 +302,14 @@ bool WPP::Server::start(unsigned int port) {
 
 bool WPP::Server::start() {
     return this->start(80u);
+}
+
+bool WPP::Server::is_running() const noexcept {
+    return this->_socket >= 0;
+}
+std::optional<unsigned int> WPP::Server::port() const noexcept {
+    if(this->_socket < 0) {
+        return {};
+    }
+    return this->_port;
 }

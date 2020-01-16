@@ -6,6 +6,7 @@
 #define WPP_REQUEST_HPP
 #include <string>
 #include <unordered_map>
+
 #include "route.hpp"
 
 namespace WPP{
@@ -14,7 +15,7 @@ namespace WPP{
 
     public:
         Request() { }
-        Method method;
+        WPP::Method method;
         std::string path;
         std::string params;
         std::unordered_map<std::string, std::string> headers;

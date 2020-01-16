@@ -16,3 +16,5 @@
 *.iml
 demo
 Web++*
+
+cmake-build-debug

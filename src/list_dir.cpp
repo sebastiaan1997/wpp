@@ -38,7 +38,7 @@ void WPP::list_dir(WPP::Request& req, WPP::Response& res) {
     status = stat(actual_path, &st_buf);
 
     if (status != 0)  {
-        res.code = 404;
+        res.code = StatusCode::not_found;
         res.phrase = "Not Found";
         res.type = "text/plain";
         res.send("Not found");
