@@ -35,5 +35,11 @@ namespace WPP {
             private:
     };
 
+    template<typename T>
+    std::stringstream& operator << (Response& lhs, T rhs) {
+        lhs.body << rhs;
+        return lhs.body;
+    }
+
 }
 #endif //WPP_RESPONSE_HPP
